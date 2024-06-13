@@ -4,15 +4,15 @@ Local server for video streaming
 
 ### API:
 
-- > Get `/`
+- `GET /`
   - return root html
-- > Get `/chunk`
+- `GET /chunk`
 
   - Pipe: return video chunk pipe
 
-- > Get `/status`
+- `GET /status`
 
   - SSE - check video existence status and start converting if needed
 
-- > Put `/source`
+- `PUT /source`
   - update videos' source folder
