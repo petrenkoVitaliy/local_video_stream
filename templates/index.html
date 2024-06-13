@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Local Video Streaming</title>
+    <style>
+        body {
+            background-color: black;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+
+            display: flex;
+            flex-direction: column;
+
+            #form-wrapper {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+
+                select {
+                    width: 300px;
+                    height: 50px;
+                    margin: 20px;
+                    font-size: 20px;
+                }
+
+                #source-form {
+                    display: flex;
+                    flex-grow: 1;
+                    align-items: center;
+
+
+                    #submit {
+                        height: 36px;
+                    }
+
+                    #source {
+                        height: 30px;
+                        flex-grow: 0.5;
+                    }
+                }
+            }
+
+            #video-wrapper {
+                display: flex;
+                justify-content: center;
+
+                #video-player {
+                    width: 80%;
+                    height: auto;
+                    padding: 10px;
+
+                    outline-style: none;
+                }
+            }
+
+            #progress-wrapper {
+                color: white;
+                margin: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="form-wrapper">
+        <select id="video-select">
+            <option value="" selected disabled>Select a video</option>
+
+            {% for video_file in video_files %}
+            <option value="{{ video_file }}"> {{ video_file }} </option>
+            {% endfor %}
+        </select>
+
+        <form id="source-form" action="/source" method="post">
+            <input type="text" id="source" name="source" value="{{ video_source }}" />
+            <input type="submit" id="submit" value="update source" />
+        </form>
+    </div>
+
+    <div id="progress-wrapper">
+        <label for="progress">Converting video</label>
+        <progress id="progress" value="0" max="100"> Converting video </progress>
+    </div>
+
+    <div id="video-wrapper">
+        <video id="video-player" width="640" height="360" controls>
+            <source id="video-source" src="" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        class ConvertProgressHandler {
+            eventSource = undefined;
+
+            createListener(file, progress, progressWrapper) {
+                progress.value = 0;
+                if (this.eventSource) {
+                    this.eventSource.close();
+                }
+
+                this.eventSource = new EventSource(`/status?q=${file}`);
+                console.log(this.eventSource)
+
+                this.eventSource.onopen = function (event) {
+                    progress.value = 0;
+                    progressWrapper.style.display = 'block';
+                };
+
+                this.eventSource.onmessage = function (event) {
+                    progress.value = event.data.split('progress_')[1];
+                    console.log(event.data.split('progress_')[1])
+                };
+
+                this.eventSource.onerror = (event) => {
+                    this.eventSource.close();
+                    progressWrapper.style.display = 'none';
+
+                    document.getElementById('video-source').src = `/chunk?q=${file}`;
+                    document.getElementById('video-player').load();
+                };
+            }
+        }
+
+        const videoSelect = document.getElementById('video-select');
+        const progress = document.getElementById('progress');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const sourceForm = document.getElementById('source-form');
+
+        const convertProgressHandler = new ConvertProgressHandler();
+
+        progressWrapper.style.display = 'none';
+
+        videoSelect.addEventListener('change', (e) => {
+            convertProgressHandler.createListener(e.target.value, progress, progressWrapper);
+        });
+
+        sourceForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const source = e.target[0].value;
+            if (!source) {
+                return
+            }
+
+            try {
+                const res = await fetch('/source', {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source
+                    })
+                });
+
+                location.reload();
+            } catch (ex) {
+                console.log(ex)
+            }
+        });
+    </script>
+</body>
+
+</html>
